@@ -19,6 +19,7 @@ export const MatchingGame: React.FC<MatchingGameProps> = ({ pairs, onComplete })
   const [cards, setCards] = useState<Card[]>([]);
   const [selectedCards, setSelectedCards] = useState<Card[]>([]);
   const [matchedPairIds, setMatchedPairIds] = useState<Set<string>>(new Set());
+  const [justMatchedPairId, setJustMatchedPairId] = useState<string | null>(null);
   const [isWrong, setIsWrong] = useState(false);
 
   const initializeGame = useCallback(() => {
@@ -44,6 +45,7 @@ export const MatchingGame: React.FC<MatchingGameProps> = ({ pairs, onComplete })
     setCards(deck.sort(() => Math.random() - 0.5));
     setSelectedCards([]);
     setMatchedPairIds(new Set());
+    setJustMatchedPairId(null);
     setIsWrong(false);
   }, [pairs]);
 
@@ -63,10 +65,20 @@ export const MatchingGame: React.FC<MatchingGameProps> = ({ pairs, onComplete })
       // Check match
       if (newSelected[0].pairId === newSelected[1].pairId) {
         // Match!
+        const matchId = newSelected[0].pairId;
         const newMatched = new Set(matchedPairIds);
-        newMatched.add(newSelected[0].pairId);
+        newMatched.add(matchId);
         setMatchedPairIds(newMatched);
+        
+        // Trigger "Pop" animation
+        setJustMatchedPairId(matchId);
+        
         setSelectedCards([]);
+
+        // Clear "Pop" state after animation
+        setTimeout(() => {
+            setJustMatchedPairId(null);
+        }, 600);
 
         if (newMatched.size === pairs.length) {
           setTimeout(onComplete, 1000);
@@ -109,11 +121,16 @@ export const MatchingGame: React.FC<MatchingGameProps> = ({ pairs, onComplete })
         {cards.map((card) => {
           const isSelected = selectedCards.find(c => c.id === card.id);
           const isMatched = matchedPairIds.has(card.pairId);
+          const isJustMatched = card.pairId === justMatchedPairId;
           
-          let cardStyle = "h-32 p-3 rounded-lg flex items-center justify-center text-center text-sm cursor-pointer transition-all duration-300 relative perspective-1000 ";
+          let cardStyle = "h-32 p-3 rounded-lg flex items-center justify-center text-center text-sm cursor-pointer transition-all duration-500 relative perspective-1000 ";
           
-          if (isMatched) {
-            cardStyle += "bg-emerald-100 border-2 border-emerald-500 text-emerald-800 opacity-50 scale-95 cursor-default ";
+          if (isJustMatched) {
+             // 1. Reward State: Pop up, glow, bright green
+             cardStyle += "bg-emerald-100 border-2 border-emerald-500 text-emerald-900 scale-105 shadow-[0_0_20px_rgba(16,185,129,0.4)] z-10 ring-2 ring-emerald-400 ring-offset-2 ";
+          } else if (isMatched) {
+             // 2. Settled State: Faded, shrunk, unobtrusive
+             cardStyle += "bg-emerald-50/50 border-emerald-200/50 text-emerald-800/50 opacity-60 scale-95 grayscale-[0.3] cursor-default ";
           } else if (isSelected) {
             if (isWrong && selectedCards.length === 2) {
               cardStyle += "bg-red-50 border-2 border-red-400 text-red-800 animate-shake ";
@@ -136,7 +153,11 @@ export const MatchingGame: React.FC<MatchingGameProps> = ({ pairs, onComplete })
               className={cardStyle}
             >
               <div className="pointer-events-none">
-                {isMatched && <CheckCircle2 className="w-5 h-5 text-emerald-500 absolute top-2 right-2" />}
+                {isMatched && (
+                    <CheckCircle2 
+                        className={`w-5 h-5 text-emerald-500 absolute top-2 right-2 ${isJustMatched ? 'animate-in zoom-in spin-in-90 duration-500' : ''}`} 
+                    />
+                )}
                 <span className={card.type === 'story' ? "italic" : "font-semibold"}>
                   {card.text}
                 </span>
@@ -151,7 +172,7 @@ export const MatchingGame: React.FC<MatchingGameProps> = ({ pairs, onComplete })
 
       {isComplete && (
         <div className="mt-8 text-center animate-in fade-in zoom-in duration-500">
-          <div className="inline-flex items-center gap-2 px-6 py-2 bg-emerald-100 text-emerald-700 rounded-full font-bold font-sans">
+          <div className="inline-flex items-center gap-2 px-6 py-2 bg-emerald-100 text-emerald-700 rounded-full font-bold font-sans shadow-sm border border-emerald-200">
             <Sparkles className="w-5 h-5" />
             Connection Established!
           </div>
