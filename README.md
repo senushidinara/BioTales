@@ -11,7 +11,7 @@
 ### **Biology is complex. We made it magic.**
 ### **Powered by the raw efficiency of Apple Silicon.**
 
-[View Demo Video] | [Download IPA] | [Read Whitepaper]
+
 
 </div>
 
