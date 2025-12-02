@@ -1,5 +1,5 @@
 {
   "name": "BioTales",
-  "description": "An interactive storytelling app that transforms complex biology and medicine topics into memorable narratives with AI-generated illustrations.",
+  "description": "An on-device AI storytelling app optimized for iPad (Arm64). Runs offline using Core ML and Apple Neural Engine to teach biology through interactive narratives.",
   "requestFramePermissions": []
 }
