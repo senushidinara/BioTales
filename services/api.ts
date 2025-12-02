@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { Chapter } from "../types";
 
@@ -25,9 +26,21 @@ const chapterSchema: Schema = {
         explanation: { type: Type.STRING, description: "Why the answer is correct." }
       },
       required: ["question", "options", "correctIndex", "explanation"]
+    },
+    matchingPairs: {
+        type: Type.ARRAY,
+        description: "Create 4 pairs that map a specific metaphor from the story to the real biological term.",
+        items: {
+            type: Type.OBJECT,
+            properties: {
+                storyTerm: { type: Type.STRING, description: "The metaphor used in the story (e.g., 'The Castle Wall')" },
+                scientificTerm: { type: Type.STRING, description: "The real biological term (e.g., 'Cell Membrane')" }
+            },
+            required: ["storyTerm", "scientificTerm"]
+        }
     }
   },
-  required: ["title", "narrative", "scientificContext", "imagePrompt", "quiz"]
+  required: ["title", "narrative", "scientificContext", "imagePrompt", "quiz", "matchingPairs"]
 };
 
 export const generateChapter = async (
@@ -47,59 +60,51 @@ export const generateChapter = async (
     2. The 'narrative' should be the story itself.
     3. The 'scientificContext' should explain the real biology behind the metaphors used in this specific chapter.
     4. Keep the tone engaging, suitable for a general audience or students.
-    5. This is Chapter ${chapterNum} of the story about "${topic}".
-    ${previousChapters.length > 0 ? `Here is what happened previously:\n${historySummary}` : "This is the very first chapter. Introduce the setting and main characters (biological components)."}
+    5. Generate a 'matchingPairs' list where users must connect the metaphor to the science to unlock the next chapter.
+    
+    Current Topic: ${topic}
+    Chapter Number: ${chapterNum}
+    
+    Previous Context (if any):
+    ${historySummary}
   `;
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: `Write Chapter ${chapterNum} about ${topic}. Return JSON.`,
+    model: 'gemini-2.5-flash',
+    contents: `Write chapter ${chapterNum} about ${topic}.`,
     config: {
-      systemInstruction: systemInstruction,
-      responseMimeType: "application/json",
+      responseMimeType: 'application/json',
       responseSchema: chapterSchema,
-      temperature: 0.7,
+      systemInstruction: systemInstruction,
     },
   });
 
-  if (!response.text) {
+  const text = response.text;
+  if (!text) {
     throw new Error("No content generated");
   }
 
-  const data = JSON.parse(response.text);
-  
+  const data = JSON.parse(text);
   return {
     ...data,
-    chapterNumber: chapterNum,
+    chapterNumber: chapterNum
   };
 };
 
 export const generateIllustration = async (prompt: string): Promise<string> => {
-  try {
-    // Using gemini-2.5-flash-image for speed and efficiency as per guidelines for general image gen
-    // We append specific style instructions to the prompt for consistency
-    const enhancedPrompt = `A high-quality, digital painting style educational illustration. ${prompt}. Detailed, clean, vibrant colors. No text labels.`;
-
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-image",
-      contents: enhancedPrompt,
-      // Config removed as responseMimeType is not supported for this model
-    });
-
-    // Check parts for the image
-    const parts = response.candidates?.[0]?.content?.parts;
-    if (parts) {
-      for (const part of parts) {
-        if (part.inlineData && part.inlineData.data) {
-          return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-        }
-      }
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash-image',
+    contents: {
+        parts: [{ text: prompt }]
     }
-    
-    throw new Error("No image data found in response");
-  } catch (error) {
-    console.error("Image generation failed:", error);
-    // Return a placeholder if generation fails to not break the flow
-    return `https://picsum.photos/800/600?blur=2`; 
+  });
+
+  for (const part of response.candidates[0].content.parts) {
+    if (part.inlineData) {
+      const base64EncodeString = part.inlineData.data;
+      return `data:image/png;base64,${base64EncodeString}`;
+    }
   }
+  
+  throw new Error("No image generated");
 };

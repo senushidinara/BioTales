@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Chapter } from '../types';
 import { generateChapter, generateIllustration } from '../services/api';
-import { ArrowRight, BrainCircuit, Check, X, RefreshCw, Home } from 'lucide-react';
+import { ArrowRight, BrainCircuit, Check, X, RefreshCw, Home, Lock } from 'lucide-react';
+import { MatchingGame } from './MatchingGame';
 
 interface StoryReaderProps {
   topic: string;
@@ -22,6 +24,9 @@ export const StoryReader: React.FC<StoryReaderProps> = ({
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isImageLoading, setIsImageLoading] = useState(true);
   const [isGeneratingNext, setIsGeneratingNext] = useState(false);
+  
+  // Progress State
+  const [gameCompleted, setGameCompleted] = useState(false);
   
   // Quiz State
   const [quizSelected, setQuizSelected] = useState<number | null>(null);
@@ -51,9 +56,10 @@ export const StoryReader: React.FC<StoryReaderProps> = ({
         fetchImage();
     }
 
-    // Reset quiz state on chapter change
+    // Reset states on chapter change
     setQuizSelected(null);
     setQuizSubmitted(false);
+    setGameCompleted(false);
 
     // Scroll to top
     topRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -89,6 +95,9 @@ export const StoryReader: React.FC<StoryReaderProps> = ({
   };
 
   const isCorrect = quizSelected === currentChapter.quiz.correctIndex;
+  
+  // Determine if user can proceed (Game must be done, Quiz is optional but recommended)
+  const canProceed = gameCompleted;
 
   return (
     <div className="min-h-screen bg-paper pb-20" ref={topRef}>
@@ -149,77 +158,92 @@ export const StoryReader: React.FC<StoryReaderProps> = ({
             </div>
         </section>
 
-        {/* Quiz Section */}
-        <section className="max-w-2xl mx-auto pt-8 border-t border-stone-200">
-            <div className="mb-6 text-center">
-                <h3 className="text-2xl font-serif font-bold text-ink mb-2">Check Your Understanding</h3>
-                <p className="text-stone-500 font-sans">{currentChapter.quiz.question}</p>
-            </div>
-
-            <div className="space-y-3">
-                {currentChapter.quiz.options.map((option, idx) => {
-                    let btnClass = "w-full p-4 text-left border rounded-xl transition-all duration-200 flex items-center justify-between group ";
-                    
-                    if (quizSubmitted) {
-                        if (idx === currentChapter.quiz.correctIndex) {
-                            btnClass += "bg-emerald-50 border-emerald-500 text-emerald-900";
-                        } else if (idx === quizSelected && idx !== currentChapter.quiz.correctIndex) {
-                            btnClass += "bg-red-50 border-red-300 text-red-900";
-                        } else {
-                            btnClass += "bg-stone-50 border-stone-200 text-stone-400 opacity-60";
-                        }
-                    } else {
-                        if (idx === quizSelected) {
-                            btnClass += "bg-stone-100 border-ink shadow-sm ring-1 ring-ink";
-                        } else {
-                            btnClass += "bg-white border-stone-200 hover:border-stone-400 hover:bg-stone-50";
-                        }
-                    }
-
-                    return (
-                        <button 
-                            key={idx}
-                            onClick={() => handleQuizOptionClick(idx)}
-                            disabled={quizSubmitted}
-                            className={btnClass}
-                        >
-                            <span className="font-sans font-medium">{option}</span>
-                            {quizSubmitted && idx === currentChapter.quiz.correctIndex && <Check className="w-5 h-5 text-emerald-600" />}
-                            {quizSubmitted && idx === quizSelected && idx !== currentChapter.quiz.correctIndex && <X className="w-5 h-5 text-red-500" />}
-                        </button>
-                    );
-                })}
-            </div>
-
-            {!quizSubmitted && (
-                <div className="mt-6 flex justify-end">
-                    <button
-                        onClick={handleQuizSubmit}
-                        disabled={quizSelected === null}
-                        className="bg-ink text-white px-6 py-2 rounded-lg font-sans font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-stone-800 transition-colors"
-                    >
-                        Check Answer
-                    </button>
-                </div>
-            )}
-
-            {quizSubmitted && (
-                <div className={`mt-6 p-4 rounded-lg animate-in fade-in slide-in-from-top-4 ${isCorrect ? 'bg-emerald-50 text-emerald-900' : 'bg-stone-100 text-stone-800'}`}>
-                    <p className="font-sans">
-                        <span className="font-bold block mb-1">{isCorrect ? 'Correct!' : 'Not quite.'}</span>
-                        {currentChapter.quiz.explanation}
-                    </p>
-                </div>
-            )}
+        {/* Interactive Game Section */}
+        <section className="scroll-mt-20">
+             <MatchingGame 
+                pairs={currentChapter.matchingPairs || []} 
+                onComplete={() => setGameCompleted(true)} 
+             />
         </section>
+
+        {/* Quiz Section - Unlocks after Game */}
+        {gameCompleted ? (
+            <section className="max-w-2xl mx-auto pt-8 border-t border-stone-200 animate-in fade-in slide-in-from-bottom-8">
+                <div className="mb-6 text-center">
+                    <h3 className="text-2xl font-serif font-bold text-ink mb-2">Knowledge Check</h3>
+                    <p className="text-stone-500 font-sans">{currentChapter.quiz.question}</p>
+                </div>
+
+                <div className="space-y-3">
+                    {currentChapter.quiz.options.map((option, idx) => {
+                        let btnClass = "w-full p-4 text-left border rounded-xl transition-all duration-200 flex items-center justify-between group ";
+                        
+                        if (quizSubmitted) {
+                            if (idx === currentChapter.quiz.correctIndex) {
+                                btnClass += "bg-emerald-50 border-emerald-500 text-emerald-900";
+                            } else if (idx === quizSelected && idx !== currentChapter.quiz.correctIndex) {
+                                btnClass += "bg-red-50 border-red-300 text-red-900";
+                            } else {
+                                btnClass += "bg-stone-50 border-stone-200 text-stone-400 opacity-60";
+                            }
+                        } else {
+                            if (idx === quizSelected) {
+                                btnClass += "bg-stone-100 border-ink shadow-sm ring-1 ring-ink";
+                            } else {
+                                btnClass += "bg-white border-stone-200 hover:border-stone-400 hover:bg-stone-50";
+                            }
+                        }
+
+                        return (
+                            <button 
+                                key={idx}
+                                onClick={() => handleQuizOptionClick(idx)}
+                                disabled={quizSubmitted}
+                                className={btnClass}
+                            >
+                                <span className="font-sans font-medium">{option}</span>
+                                {quizSubmitted && idx === currentChapter.quiz.correctIndex && <Check className="w-5 h-5 text-emerald-600" />}
+                                {quizSubmitted && idx === quizSelected && idx !== currentChapter.quiz.correctIndex && <X className="w-5 h-5 text-red-500" />}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {!quizSubmitted && (
+                    <div className="mt-6 flex justify-end">
+                        <button
+                            onClick={handleQuizSubmit}
+                            disabled={quizSelected === null}
+                            className="bg-ink text-white px-6 py-2 rounded-lg font-sans font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-stone-800 transition-colors"
+                        >
+                            Check Answer
+                        </button>
+                    </div>
+                )}
+
+                {quizSubmitted && (
+                    <div className={`mt-6 p-4 rounded-lg animate-in fade-in slide-in-from-top-4 ${isCorrect ? 'bg-emerald-50 text-emerald-900' : 'bg-stone-100 text-stone-800'}`}>
+                        <p className="font-sans">
+                            <span className="font-bold block mb-1">{isCorrect ? 'Correct!' : 'Not quite.'}</span>
+                            {currentChapter.quiz.explanation}
+                        </p>
+                    </div>
+                )}
+            </section>
+        ) : (
+             <div className="text-center py-8 text-stone-400 flex flex-col items-center gap-2">
+                <Lock className="w-6 h-6" />
+                <p className="font-sans">Complete the Metaphor Matcher to unlock the quiz and next chapter</p>
+             </div>
+        )}
 
         {/* Navigation Footer */}
         <div className="pt-8 flex justify-center pb-8">
             <div className="flex flex-col items-center gap-2">
                 <button
                     onClick={handleNextChapter}
-                    disabled={isGeneratingNext || !quizSubmitted}
-                    className="group relative inline-flex items-center gap-3 px-8 py-4 bg-accent hover:bg-accent-dark text-white rounded-full font-bold transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-lg disabled:cursor-not-allowed"
+                    disabled={isGeneratingNext || !canProceed}
+                    className="group relative inline-flex items-center gap-3 px-8 py-4 bg-accent hover:bg-accent-dark text-white rounded-full font-bold transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-lg disabled:cursor-not-allowed disabled:bg-stone-300"
                 >
                     {isGeneratingNext ? (
                         <>
@@ -233,9 +257,6 @@ export const StoryReader: React.FC<StoryReaderProps> = ({
                         </>
                     )}
                 </button>
-                {!quizSubmitted && !isGeneratingNext && (
-                    <span className="text-xs text-stone-400 font-sans">Complete the quiz to continue</span>
-                )}
             </div>
         </div>
       </div>

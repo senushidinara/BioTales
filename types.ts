@@ -1,3 +1,4 @@
+
 export enum AppState {
   HOME = 'HOME',
   READING = 'READING',
@@ -11,12 +12,18 @@ export interface Quiz {
   explanation: string;
 }
 
+export interface MatchingPair {
+  storyTerm: string;
+  scientificTerm: string;
+}
+
 export interface Chapter {
   title: string;
   narrative: string; // The metaphorical story
   scientificContext: string; // The literal biology explanation
   imagePrompt: string; // Prompt for the image generator
   quiz: Quiz;
+  matchingPairs: MatchingPair[]; // Data for the matching game
   chapterNumber: number;
 }
 
